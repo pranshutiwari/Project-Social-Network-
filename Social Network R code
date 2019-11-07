@@ -1,0 +1,125 @@
+library(UserNetR)
+library(statnet)
+library(intergraph)
+library(igraph)
+
+faci<-data("Facebook")
+library(ergmharris)
+class(faci)
+
+p0=asNetwork(Facebook)
+pi=asIgraph(p0)
+
+class(pi)
+summary(p0)
+library(igraph)
+#Making uni-directed 
+pi2=as.undirected(pi, mode = "collapse")
+p=asNetwork(pi2)
+#Fairly complex network as I can see different functional properties per each node and different nodes are connected
+plot(p)
+class(p)
+summary(p)
+
+detach("package:igraph")
+list.vertex.attributes(p)
+p3=as.sociomatrix(p)
+
+class(as.sociomatrix(p))
+summary(p,print.adj = FALSE)
+gplot(p,vertex.col=2,displaylabels = FALSE)
+p%v%'vertex.names'
+library(igraph)
+detach("package:igraph")
+degree(p,gmode="graph")
+Close=closeness(p,gmode="graph")
+Between=betweenness(p,gmode="graph")
+Degree=degree(pnew,gmode="graph")
+df<-data.frame(Close,Between,Degree)
+row.names(df)<-pnew%v%"vertex.names"
+df.sort<-df[order(-df$Degree),]
+df.sort
+par(mfrow=c(1,2))
+#Displaying Data
+op<-par(mar=rep(0,4))
+gplot(p,vertex.col='lightblue',displaylabels = TRUE,vertex.cex=1.3,label.cex=0.4,label.pos=5,displayisolates = TRUE,usearrows = FALSE)
+library(igraph)
+p
+deg<-p %v% "alldeg"
+deg
+which(p%v%"friend_count">2)
+po<-get.inducedSubgraph(p,which(p%v%"friend_count">2))
+po[,]
+pcopy<-pi
+gplot(po,usearrows = FALSE)
+vectorpoints<-isolates(p)
+class(pcopy)
+delete.vertices(pcopy,vectorpoints)
+#Removing Isolates we get:
+pnew3<-asNetwork(pcopy)
+gplot(pnew3,usearrows = FALSE)
+#Now lets calcualte betweenness,closeness
+detach("package:igraph")
+degree(pnew3,gmode="graph")
+Close=closeness(pnew3,gmode="graph")
+Between=betweenness(pnew3,gmode="graph")
+Degree=degree(pnew3,gmode="graph")
+df<-data.frame(Close,Between,Degree)
+row.names(df)<-pnew3%v%"vertex.names"
+df.sort<-df[order(-df$Degree),]
+df.sort
+#Has Friends counts any thing to do with links?
+library(igraph)
+summary(pnew3)
+countfriends<-as.numeric(get.vertex.attribute(pnew3,"friend_count"))
+countfriends
+dfvertices<-as_data_frame(pnew3,what='vertices')
+mycol<-brewer.pal(5,"Dark2")
+par(mfrow=c(1,1))
+library(igraph)
+pcopyvertex<-as_data_frame(pcopy,what='vertices')
+pcopyvertex
+detach("package:igraph")
+sexfactor<-as.factor(get.vertex.attribute(pnew3,"sex"))
+plot(pnew3,usearrows=FALSE,vertex.cex=1,edge.lwd=0,edge.col = "grey25",displaylabels = FALSE,vertex.col = mycol[sexfactor],main='Facebook')
+legend("topright",legend=c("female",'male'),col=mycol,pch=19,pt.cex=2)
+#Lets analyze things
+library(intergraph)
+library(igraph)
+coreness<-graph.coreness(pcopy)
+coreness
+maxc=max(coreness)
+V(pcopy)$col<-coreness+1
+print(maxc)
+par(mar=c(0,4))
+plot(pcopy,vertex.cex=0.6)
+table(coreness)
+par(op)
+colors<-rainbow(maxc)
+plot(pcopy,vertex.label=coreness,vertex.color=colors[coreness])
+pcopy2<-pcopy
+pcopy2_11=induced.subgraph(pcopy2,vids = which(coreness>11))
+pcopy2_10=induced.subgraph(pcopy2,vids = which(coreness>10))
+pcopy2_9=induced.subgraph(pcopy2,vids = which(coreness>9))
+pcopy2_6=induced.subgraph(pcopy2,vids = which(coreness>6))
+pcopy2_4=induced.subgraph(pcopy2,vids = which(coreness>4))
+par(mfrow=c(2,2))
+plot(pcopy2_11)
+plot(pcopy2_10)
+plot(pcopy2_9)
+plot(pcopy2_6)
+par(mfrow=c(1,1))
+plot(pcopy2_4)
+df$coreness<-coreness
+df
+#we add coreness to existing data fram of vertex property
+analysis1<-data.frame(pcopyvertex,coreness,Degree)
+analysis1$Degree<-as.numeric(analysis1$Degree)
+analysis1$friend_count<-as.numeric(analysis1$friend_count)
+summary(analysis1$Degree)
+library(ggplot2)
+q=ggplot(analysis1,aes(Degree,friend_count))+geom_point(aes(color=sex))
+q+scale_y_continuous(limits=c(0, 1000),breaks = seq(0, 1000, 200))
+#Above plot shows no solid relation and hence moving to modularity function
+table(V(pcopy)$sex)
+modularity(pcopy,V(pcopy)$friend_count)
