@@ -1,0 +1,173 @@
+heart.data <- read.csv("https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data",header=FALSE,sep=",",na.strings = '?')
+names(heart.data) <- c( "age", "sex", "cp", "trestbps", "chol","fbs", "restecg",
+                        "thalach","exang", "oldpeak","slope", "ca", "thal", "num")
+str(heart.data)
+summary(heart.data)
+heart.data<-na.omit(heart.data)
+heart.data$sex<-as.factor(heart.data$sex)
+heart.data$fbs<-as.factor(heart.data$fbs)
+heart.data$cp<-as.factor(heart.data$cp)
+heart.data$restecg<-as.factor(heart.data$restecg)
+heart.data$exang<-as.factor(heart.data$exang)
+attach(heart.data)
+require(MASS)
+pairs(~age+cp+num+chol,main='Simple Scatterplot',cex.main=1,cex.label=0.25,cex=0.2,pch=c(8,12,16,20)[num],col=c('red','blue','cornflowerblue','green')[heart.data$num])
+library(lattice)
+library(lattice)
+p=dim(heart.data)
+p
+n=p[1]
+for (i in (1:p[1])){
+  if (num[i]>1){
+    heart.data$num[i]=1
+  }
+  else{
+    heart.data$num[i]=num[i]
+  }
+}
+
+w=heart.data$num
+w<-as.factor(w)
+cp<-as.factor(heart.data$cp)
+pairs(~age+cp+w+chol+trestbps+thal,main='Simple Scatterplot-Iteration 2',cex.main=0.9,cex.label=0.25,cex=0.1,pch=c(8,8)[w],col=c('red','green')[w],cex.label=0.8)
+require(lattice)
+heart.data$cp<- factor(heart.data$cp,levels=c(1,2,3,4),labels=c('Typical Angina Pain','Atypical Angina','Non-Angina Pain','Asymptomatic Pain'))
+xyplot(w~age|factor(cp),data=heart.data)
+bwplot(w~age|factor(cp),data=heart.data,ylab = list('Disease Status',cex=0.75),main= list('Comparing Chest Pain & Age',cex=0.75))
+bwplot(cp~age|factor(w),data=heart.data,ylab = list('Chest Pain Category',cex=0.75),main= list('Comparing Chest Pain & Age',cex=0.75))
+par(mfrow=c(2,2))
+a<-bwplot(w~age,data=heart.data,ylab = list('Disease Status',cex=0.70),main= list('Comparing Age & Disease',cex=0.70))
+b<-bwplot(w~chol,data=heart.data,ylab = list('Disease Status',cex=0.70),main= list('Comparing Cholestrol & Disease',cex=0.70))
+print(a,position=c(0,0,0.5,1),more=TRUE)
+print(b,position=c(0.5,0,1,1))
+c<-bwplot(w~trestbps,data=heart.data,ylab = list('Disease Status',cex=0.75),main= list('Comparing BP & Disease',cex=0.75))
+d<-bwplot(w~heart.data$thalach,data=heart.data,ylab = list('Disease Status',cex=0.75),main= list('Maximum Heart Rate & Disease',cex=0.75))
+print(c,position=c(0,0,0.5,1),more=TRUE)
+print(d,position=c(0.5,0,1,1))
+require(ggplot2)
+ggplot(data=heart.data,aes(trestbps,thalach))+geom_point(aes(color=factor(num)))+labs(title='Comparison of Rest BP Vs Max HR',x='Resting BP',y='Max HR',caption='Figure 4; Source:UCI Machinelearning Heart Data Set')+geom_smooth(size=3,linetype=3,method="lm",se=FALSE,)+theme_bw(base_family = "Times")
+ggplot(data=heart.data,aes(chol,thalach))+geom_point(aes(color=factor(num)))+labs(title='Comparison of Cholestrol Vs Max HR',x='Cholestrol',y='Max HR',caption = 'Figure 5; Source:UCI Machinelearning Heart Data Set')+theme_bw(base_family = "Times")
+ggplot(data=heart.data,aes(trestbps,chol))+geom_point(aes(color=factor(num)))+labs(title='Comparison of Cholestrol,BP and Heart Disease ',x='Resting BP',y='Cholestrol',caption = 'Figure 5b; Source:UCI Machinelearning Heart Data Set')+theme_bw(base_family = "Times",element_text(size=22))+labs(fill='Patient Type')+scale_fill_discrete(name = "Group", labels = c("Normal Heart ", "Diseased Heart "))
+#Logistic Regression
+
+k = 10 #using 10-fold cross-validation
+groups = c(rep(1:k,floor(n/k)),1:(n-floor(n/k)*k))  #produces list of group labels
+groups
+set.seed(2)
+cvgroups = sample(groups,n)  #orders randomly, with seed (2) to determine starting point
+
+#prediction via cross-validation
+
+model1<-(num~age+chol+thalach+trestbps)
+model2<-(num~.)
+model3<-(num~age+chol)
+model4<-(num~age+trestbps+thal)
+allmodellist=list(model1,model2,model3,model4)
+r=rep(NA,4)
+r2=rep(NA,4)
+cvaccuracy=rep(NA,4)
+cvaccuracy2=rep(NA,4)
+for (j in 1:4){
+  allpredictedCV=rep(NA,n)
+  allpredictedCV2=rep(NA,n)
+  for (i in 1:k)  {
+    groupi = (cvgroups == i)
+    lmfitCV = glm(formula = allmodellist[[j]],data=heart.data,subset=!groupi,family=binomial)
+    lmfitCV2=lda(formula=allmodellist[[j]],data=heart.data,subset = !groupi)
+    allpredictedCV[groupi] = predict.glm(lmfitCV,heart.data[groupi,],type='response')
+    allpredictedCV2[groupi]=predict(lmfitCV2,heart.data)$class
+  }
+  r=table(allpredictedCV>0.5,heart.data$num)
+  r2=table(allpredictedCV2,heart.data$num)
+  cvaccuracy[j]=sum(diag(r))/sum(r)
+  cvaccuracy2[j]=sum(diag(r2))/sum(r2)
+}
+BestlogisticModel<-which.max(cvaccuracy)
+BestQDAModel<-which.max(cvaccuracy2)
+
+
+
+par(mfrow=c(1,1))
+cvaccuracy2
+cvaccuracyper=cvaccuracy*100
+cvaccuracyper
+cvaccuracy2per=cvaccuracy2*100
+
+head(heart.data)
+summary(heart.data)
+#Removing Categorical Variable as KNN does not consider categorical variable")
+heart.data2<-heart.data[-c(2,3,6,7,9,14)]
+
+std.heart.data2<-scale(heart.data2)
+std.heart.data2
+l=dim(heart.data2)[1]
+test=sample(l,80,replace = FALSE)
+test
+heart.data.train<-std.heart.data2[-test,]
+heart.data.train
+heart.data.test<-std.heart.data2[test,]
+K=1:10
+
+library(class)
+library(FNN)
+accuracy=rep(NA,10)
+accuracyper=rep(NA,10)
+heart.data$num[test]
+prediction=knn.reg(heart.data.train,heart.data.test,heart.data$num[-test],k=1)
+prediction$pred
+str(heart.data$num[test])
+t=table(prediction$pred,heart.data$num[test])
+
+par(mar=(c(4,4,3,3)))
+sum(diag(t))/sum(t)
+for (i in (1:10)){
+  prediction=knn.reg(heart.data.train,heart.data.test,heart.data$num[-test],k=K[i]) 
+  tab=table(prediction$pred,heart.data$num[test])
+  accuracy[i]=sum(diag(tab))/sum(tab)
+  accuracyper[i]=accuracy[i]*100
+}  
+accuracyper
+plot(K,accuracyper,main='Accuracy value for different K values ',xlab='K-Value',ylab='Accuracy',ylim=c(0,100),cex.main=0.7,cex.lab=0.75, font=1,abline(v=1,lty=2,col='red'),cex.axis=0.75,pch=1,col='blue')
+text(3.5,90,'Best Model for k =1 neighbour',font=1,cex=0.60)
+cvvalues<-c(cvaccuracyper,cvaccuracy2per,accuracyper)
+category<-c('Logistic','Logistic','Logistic','Logistic','LDA','LDA','LDA','LDA','KNN','KNN','KNN','KNN','KNN','KNN','KNN','KNN','KNN','KNN','KNN')
+p<-cbind(cvvalues,category)
+
+p2<-data.frame(p)
+p2
+str(p2)
+p2$cvvalues<-as.numeric(as.character(factor(p2$cvvalues)))
+p2$cvvalues
+par(mfrow=c(1,1))
+ggplot(p2,aes(category,cvvalues))+geom_boxplot(aes(colour=category))+labs(title='Comparison of Accuracy between Models',x='Model',y='Accuracy%',caption=" Figure 6 ;Source:Analysis based on raw data from  UCI MachineLearning Heart Data"
+)+theme_classic() +theme(plot.title = element_text(color = "black", size = 10),axis.title.x = element_text(face="italic",size = 9,colour = "black"),axis.title.y = element_text(face="italic",size=9,colour = "black"),plot.caption=element_text(face="italic",size = 9,colour = "black",hjust = 0.3))
+bartlett.test(heart.data$chol,heart.data$num)
+library(caret)
+lvs=c('Disease','Normal')
+truth <- factor(rep(lvs, times = c(37, 43)),levels = rev(lvs))
+pred <- factor(c(rep(lvs, times = c(26, 11)), rep(lvs, times = c(8, 35))), 
+               levels = rev(lvs))
+xtab <- table(truth, pred)
+library(e1071)
+cm <- confusionMatrix(pred,truth)
+cm$table
+fourfoldplot(cm$table,main=' Most Accurate KNN Model')
+#Lets compare KNN vs Logistic on same test set (without CV)
+#Best Logistic Model4 will now be used on above test data
+lmfitLognew=glm(model2,heart.data[-test,],family = binomial)
+allpredictedlogistic = predict.glm(lmfitLognew,heart.data[test,],type='response')
+logistictable=table(allpredictedlogistic>0.5,heart.data$num[test])
+logistictable
+Accuracytestlog<-sum(diag(logistictable))/sum(logistictable)
+Accuracytestlog
+Accuracytestperlog=Accuracytestlog*100
+#LogisticModel2
+lvs=c('Disease','Normal')
+truth2 <- factor(rep(lvs, times = c(37, 43)),levels = rev(lvs))
+pred2 <- factor(c(rep(lvs, times = c(31, 6)), rep(lvs, times = c(6, 37))), 
+               levels = rev(lvs))
+xtab <- table(truth2, pred2)
+library(e1071)
+cm2 <- confusionMatrix(pred2,truth2)
+cm2$table
+fourfoldplot(cm2$table,main=' Best Logistic  Model')
